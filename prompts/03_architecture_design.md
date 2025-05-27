@@ -137,4 +137,69 @@
 
 1. 使用 `mcp_supabase_execute_sql` 工具插入架构组件
 2. 使用 `mcp_supabase_execute_sql` 工具更新项目技术栈
-3. 创建架构相关的项目上下文 
+3. 创建架构相关的项目上下文
+
+## 架构信息结构化输出
+
+**重要**：架构确认后，必须将以下信息整理为结构化格式，供后续数据库初始化使用：
+
+### 技术栈信息（JSON格式）
+```json
+{
+  "frontend": {
+    "framework": "[前端框架名称和版本]",
+    "ui_library": "[UI组件库]",
+    "state_management": "[状态管理方案]"
+  },
+  "backend": {
+    "framework": "[后端框架名称和版本]",
+    "language": "[编程语言]",
+    "api_style": "[API设计风格，如RESTful]"
+  },
+  "database": {
+    "type": "[数据库类型]",
+    "provider": "[数据库提供商，如Supabase]"
+  },
+  "deployment": {
+    "platform": "[部署平台]",
+    "containerization": "[容器化方案，如Docker]"
+  }
+}
+```
+
+### 架构设计信息（JSON格式）
+```json
+{
+  "architecture_pattern": "[架构模式，如MVC、微服务等]",
+  "system_components": [
+    {
+      "name": "前端应用层",
+      "description": "用户界面和交互逻辑",
+      "technology": "[具体技术栈]"
+    },
+    {
+      "name": "API服务层", 
+      "description": "后端API接口和业务逻辑",
+      "technology": "[具体技术栈]"
+    },
+    {
+      "name": "数据访问层",
+      "description": "数据库操作和数据模型",
+      "technology": "[具体技术栈]"
+    }
+  ],
+  "security_measures": "[安全措施描述]",
+  "performance_considerations": "[性能优化考虑]"
+}
+```
+
+### 核心模块列表
+基于架构设计，确定以下核心模块（这些将存储到 code_architecture 表）：
+1. **前端应用层**：用户界面和交互逻辑
+2. **API服务层**：后端接口和业务逻辑  
+3. **数据访问层**：数据库操作和模型定义
+4. **用户认证模块**：注册、登录、权限管理
+5. **核心业务模块**：根据PRD定义的主要功能
+6. **通用工具模块**：公共函数、工具类、配置
+
+**获得用户确认后**，确保将上述结构化信息传递给数据库初始化步骤。 

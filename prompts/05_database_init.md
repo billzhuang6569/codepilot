@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE, -- 关联到 specific user project
   phase_id UUID REFERENCES development_phases(id) ON DELETE CASCADE,
-  task_code VARCHAR(50) UNIQUE NOT NULL, -- 确保task_code在所有项目中唯一，或者考虑 (project_id, task_code) 复合唯一
+  task_code VARCHAR(50) NOT NULL, -- 项目内唯一的任务代码
   name VARCHAR(255) NOT NULL,
   objective TEXT,
   technical_notes TEXT,
@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   actual_hours DECIMAL(5,2),
   dependencies JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
-  completed_at TIMESTAMP
+  completed_at TIMESTAMP,
+  UNIQUE(project_id, task_code) -- 确保task_code在项目内唯一
 );
 
 -- 任务执行记录表
@@ -108,6 +109,15 @@ CREATE TABLE IF NOT EXISTS code_architecture (
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- 创建性能优化索引
+CREATE INDEX IF NOT EXISTS idx_development_phases_project_id ON development_phases(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_task_executions_task_id ON task_executions(task_id);
+CREATE INDEX IF NOT EXISTS idx_project_context_project_type ON project_context(project_id, context_type);
+CREATE INDEX IF NOT EXISTS idx_code_architecture_project_id ON code_architecture(project_id);
 ```
 **表结构创建完成后，继续执行步骤 3。**
 
@@ -146,11 +156,29 @@ INSERT INTO development_phases (project_id, phase_number, name, description) VAL
 -- 将 [CURRENT_USER_PROJECT_UUID] 替换为实际生成的UUID
 -- 将 [技术栈JSON] 替换为实际的技术栈信息（JSON格式）
 -- 将 [PRD摘要] 替换为实际的PRD摘要
+-- 将 [架构设计JSON] 替换为实际的架构设计信息（JSON格式）
 INSERT INTO project_context (project_id, context_type, content) VALUES
 ('[CURRENT_USER_PROJECT_UUID]', 'current_focus', '项目初始化阶段'),
 ('[CURRENT_USER_PROJECT_UUID]', 'tech_stack', '[技术栈JSON]'),
-('[CURRENT_USER_PROJECT_UUID]', 'prd_summary', '[PRD摘要]');
+('[CURRENT_USER_PROJECT_UUID]', 'prd_summary', '[PRD摘要]'),
+('[CURRENT_USER_PROJECT_UUID]', 'architecture_design', '[架构设计JSON]');
 ```
+
+#### 3.5 存储架构设计到 code_architecture 表
+根据架构设计阶段确定的模块结构，将主要模块信息存储到 code_architecture 表：
+```sql
+-- 将 [CURRENT_USER_PROJECT_UUID] 替换为实际生成的UUID
+-- 根据实际架构设计调整模块信息
+INSERT INTO code_architecture (project_id, module_name, description) VALUES
+('[CURRENT_USER_PROJECT_UUID]', '前端应用层', '用户界面和交互逻辑，使用[前端框架]实现'),
+('[CURRENT_USER_PROJECT_UUID]', 'API服务层', '后端API接口，使用[后端框架]实现业务逻辑'),
+('[CURRENT_USER_PROJECT_UUID]', '数据访问层', '数据库操作和数据模型定义'),
+('[CURRENT_USER_PROJECT_UUID]', '用户认证模块', '用户注册、登录、权限管理'),
+('[CURRENT_USER_PROJECT_UUID]', '核心业务模块', '根据PRD定义的主要功能模块'),
+('[CURRENT_USER_PROJECT_UUID]', '通用工具模块', '公共函数、工具类、配置管理');
+```
+
+**注意**：上述模块信息应该根据架构设计阶段的具体输出进行调整。如果架构设计中定义了更具体的模块，请相应更新。
 
 ### 4. 验证当前用户项目初始化
 使用 `mcp_supabase_execute_sql` 工具，在 `SHARED_SUPABASE_PROJECT_ID` 指向的 "codepilot-plan" 项目中执行以下 SQL，验证数据是否正确插入：
@@ -159,13 +187,31 @@ INSERT INTO project_context (project_id, context_type, content) VALUES
 SELECT 
   p.user_defined_name as project_name,
   p.id as project_id,
+  p.status as project_status,
   COUNT(DISTINCT dp.id) as phase_count,
-  COUNT(DISTINCT t.id) as task_count 
+  COUNT(DISTINCT t.id) as task_count,
+  COUNT(DISTINCT pc.id) as context_count,
+  COUNT(DISTINCT ca.id) as architecture_module_count
 FROM projects p
 LEFT JOIN development_phases dp ON p.id = dp.project_id
 LEFT JOIN tasks t ON p.id = t.project_id
+LEFT JOIN project_context pc ON p.id = pc.project_id
+LEFT JOIN code_architecture ca ON p.id = ca.project_id
 WHERE p.id = '[CURRENT_USER_PROJECT_UUID]'
-GROUP BY p.id, p.user_defined_name;
+GROUP BY p.id, p.user_defined_name, p.status;
+```
+
+同时验证项目上下文是否正确创建：
+```sql
+-- 将 [CURRENT_USER_PROJECT_UUID] 替换为实际生成的UUID
+SELECT context_type, 
+       CASE 
+         WHEN LENGTH(content) > 50 THEN LEFT(content, 50) || '...' 
+         ELSE content 
+       END as content_preview
+FROM project_context 
+WHERE project_id = '[CURRENT_USER_PROJECT_UUID]'
+ORDER BY context_type;
 ```
 
 ## 完成后
